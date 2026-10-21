@@ -92,7 +92,7 @@ Example error response (`400 Bad Request`) when a field is missing:
 
 ## Links
 
-- **GitHub Repository:** [YOUR_GITHUB_REPOSITORY_URL](https://github.com/Wanderer-IT/Libray)
+- **GitHub Repository:** https://github.com/Wanderer-IT/Items
 - **Render Deployment:** https://your-service-name.onrender.com
 
 ## Known Limitations
