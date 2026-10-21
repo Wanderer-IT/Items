@@ -1,5 +1,5 @@
 {
-  "name": "library-api",
+  "name": "Items-api",
   "version": "1.0.0",
   "description": "A RESTful Books API built with Express.js (ITPE101 Lab Activity)",
   "main": "server.js",
