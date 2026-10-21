@@ -1,130 +1,121 @@
 const express = require('express');
 
 const app = express();
-app.use(express.json()); // enable JSON request-body parsing
+const PORT = process.env.PORT || 3000;
 
-const PORT = process.env.PORT || 3000; // Render supplies PORT
+app.use(express.json());
 
-// In-memory storage (temporary)
-let books = [
-  { id: 1, title: 'Noli Me Tangere', author: 'Jose Rizal', year: 1887 },
-  { id: 2, title: 'El Filibusterismo', author: 'Jose Rizal', year: 1891 },
+let items = [
+    { id: 1, name: 'Nagakiba', type: 'Katana', damage: '127 + 111' },
+    { id: 2, name: 'Rivers Of Blood', type: 'Katana', damage: '132 + 102' }
 ];
+
 let nextId = 3;
 
-// Validate book data. When `partial` is true (PATCH), only validate fields present.
-function validateBook(body, partial = false) {
-  const errors = [];
-  const { title, author, year } = body || {};
-
-  if (!partial || title !== undefined) {
-    if (typeof title !== 'string' || title.trim() === '') {
-      errors.push('title is required and must be a non-empty string');
-    }
-  }
-  if (!partial || author !== undefined) {
-    if (typeof author !== 'string' || author.trim() === '') {
-      errors.push('author is required and must be a non-empty string');
-    }
-  }
-  if (!partial || year !== undefined) {
-    if (!Number.isInteger(year) || year < 0 || year > new Date().getFullYear()) {
-      errors.push('year is required and must be a valid integer (not in the future)');
-    }
-  }
-  return errors;
+function validateItem(body) {
+    const { name, type, damage } = body || {};
+    return (
+        typeof name === 'string' && name.trim() &&
+        typeof type === 'string' && type.trim() &&
+        typeof damage === 'string' && damage.trim()
+    );
 }
 
-function findBook(req) {
-  const id = Number(req.params.id);
-  return books.find((b) => b.id === id);
-}
+const INVALID_MESSAGE = 'Name, type, and damage are required and must be non-empty strings.';
 
-// Root route - API status
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'Library Books API is running', endpoints: '/api/books' });
+    res.json({ message: 'Items API is running!' });
 });
 
-// READ all (optional ?author= filter)
-app.get('/api/books', (req, res) => {
-  const { author } = req.query;
-  const result = author
-    ? books.filter((b) => b.author.toLowerCase().includes(String(author).toLowerCase()))
-    : books;
-  res.status(200).json({ count: result.length, data: result });
+app.get('/api/items', (req, res) => {
+    res.status(200).json(items);
 });
 
-// READ one
-app.get('/api/books/:id', (req, res) => {
-  const book = findBook(req);
-  if (!book) return res.status(404).json({ error: `Book with id ${req.params.id} not found` });
-  res.status(200).json(book);
+app.get('/api/items/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const item = items.find(i => i.id === id);
+
+    if (!item) {
+        return res.status(404).json({ message: 'Item not found' });
+    }
+
+    res.status(200).json(item);
 });
 
-// CREATE
-app.post('/api/books', (req, res) => {
-  const errors = validateBook(req.body);
-  if (errors.length) return res.status(400).json({ error: 'Validation failed', details: errors });
+app.post('/api/items', (req, res) => {
+    if (!validateItem(req.body)) {
+        return res.status(400).json({ message: INVALID_MESSAGE });
+    }
 
-  const { title, author, year } = req.body;
-  const book = { id: nextId++, title: title.trim(), author: author.trim(), year };
-  books.push(book);
-  res.status(201).json(book);
+    const { name, type, damage } = req.body;
+
+    const newItem = {
+        id: nextId++,
+        name: name.trim(),
+        type: type.trim(),
+        damage: damage.trim()
+    };
+
+    items.push(newItem);
+
+    res.status(201).json({
+        message: 'Item created successfully',
+        item: newItem
+    });
 });
 
-// UPDATE (full replacement of editable fields)
-app.put('/api/books/:id', (req, res) => {
-  const book = findBook(req);
-  if (!book) return res.status(404).json({ error: `Book with id ${req.params.id} not found` });
+app.put('/api/items/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const item = items.find(i => i.id === id);
 
-  const errors = validateBook(req.body);
-  if (errors.length) return res.status(400).json({ error: 'Validation failed', details: errors });
+    if (!item) {
+        return res.status(404).json({ message: 'Item not found' });
+    }
 
-  const { title, author, year } = req.body;
-  book.title = title.trim();
-  book.author = author.trim();
-  book.year = year;
-  res.status(200).json(book);
+    if (!validateItem(req.body)) {
+        return res.status(400).json({ message: INVALID_MESSAGE });
+    }
+
+    const { name, type, damage } = req.body;
+
+    item.name = name.trim();
+    item.type = type.trim();
+    item.damage = damage.trim();
+
+    res.status(200).json({
+        message: 'Item updated successfully',
+        item
+    });
 });
 
-// UPDATE (partial)
-app.patch('/api/books/:id', (req, res) => {
-  const book = findBook(req);
-  if (!book) return res.status(404).json({ error: `Book with id ${req.params.id} not found` });
+app.delete('/api/items/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const index = items.findIndex(i => i.id === id);
 
-  const errors = validateBook(req.body, true);
-  if (errors.length) return res.status(400).json({ error: 'Validation failed', details: errors });
+    if (index === -1) {
+        return res.status(404).json({ message: 'Item not found' });
+    }
 
-  const { title, author, year } = req.body;
-  if (title !== undefined) book.title = title.trim();
-  if (author !== undefined) book.author = author.trim();
-  if (year !== undefined) book.year = year;
-  res.status(200).json(book);
+    const deletedItem = items.splice(index, 1)[0];
+
+    res.status(200).json({
+        message: 'Item deleted successfully',
+        item: deletedItem
+    });
 });
 
-// DELETE
-app.delete('/api/books/:id', (req, res) => {
-  const book = findBook(req);
-  if (!book) return res.status(404).json({ error: `Book with id ${req.params.id} not found` });
-
-  books = books.filter((b) => b.id !== book.id);
-  res.status(200).json({ message: `Book with id ${book.id} deleted`, deleted: book });
-});
-
-// Unknown route handler
-app.use((req, res) => {
-  res.status(404).json({ error: `Route ${req.method} ${req.originalUrl} not found` });
-});
-
-// Malformed JSON / unexpected errors
+// Malformed JSON body handler
 app.use((err, req, res, next) => {
-  if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({ error: 'Invalid JSON in request body' });
-  }
-  console.error(err);
-  res.status(500).json({ error: 'Internal server error' });
+    if (err.type === 'entity.parse.failed') {
+        return res.status(400).json({ message: 'Invalid JSON body' });
+    }
+    next(err);
+});
+
+app.use((req, res) => {
+    res.status(404).json({ message: 'Route not found' });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
